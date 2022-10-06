@@ -1,0 +1,82 @@
+;
+; Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
+;
+; SPDX-License-Identifier: BSD-3-Clause
+;
+
+.program rc_ch0
+
+.wrap_target
+loop:
+    wait 1 pin 0
+    set x, 0
+    jmp x-- loop1
+loop1:
+    jmp x-- loop2
+loop2:
+    jmp pin  loop1
+    mov isr x
+    push block
+    irq 0
+.wrap
+
+.program rc_ch1
+
+.wrap_target
+loop:
+    wait 1 pin 0
+    set y, 0
+    jmp y-- loop1
+loop1:
+    jmp y-- loop2
+loop2:
+    jmp pin  loop1
+    mov isr y
+    push block
+    irq 0
+.wrap
+% c-sdk {
+#include "hardware/clocks.h"
+
+
+static inline void rc_ch0_program_init(PIO pio, uint sm, uint offset, uint pin, uint sm_clk) {
+    pio_sm_config c = rc_ch0_program_get_default_config(offset);
+
+    float div = (float)clock_get_hz(clk_sys) / sm_clk;
+    sm_config_set_clkdiv(&c, div);
+
+    // Map the state machine's OUT pin group to one pin, namely the `pin`
+    // parameter to this function.
+    sm_config_set_in_pins(&c, pin); // for WAIT
+    sm_config_set_jmp_pin(&c, pin); // for JMP
+    // Set this pin's GPIO function (connect PIO to the pad)
+    pio_gpio_init(pio, pin);
+    // Set the pin direction to input at the PIO
+    pio_sm_set_consecutive_pindirs(pio, sm, pin, 1, false);
+
+    // Load our configuration, and jump to the start of the program
+    pio_sm_init(pio, sm, offset, &c);
+    // Set the state machine running
+    pio_sm_set_enabled(pio, sm, true);
+}
+static inline void rc_ch1_program_init(PIO pio, uint sm, uint offset, uint pin, uint sm_clk) {
+    pio_sm_config c = rc_ch1_program_get_default_config(offset);
+
+    float div = (float)clock_get_hz(clk_sys) / sm_clk;
+    sm_config_set_clkdiv(&c, div);
+
+    // Map the state machine's OUT pin group to one pin, namely the `pin`
+    // parameter to this function.
+    sm_config_set_in_pins(&c, pin); // for WAIT
+    sm_config_set_jmp_pin(&c, pin); // for JMP
+    // Set this pin's GPIO function (connect PIO to the pad)
+    pio_gpio_init(pio, pin);
+    // Set the pin direction to input at the PIO
+    pio_sm_set_consecutive_pindirs(pio, sm, pin, 1, false);
+
+    // Load our configuration, and jump to the start of the program
+    pio_sm_init(pio, sm, offset, &c);
+    // Set the state machine running
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}
